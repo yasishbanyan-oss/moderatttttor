@@ -174,10 +174,17 @@ async def central_message_handler(update: Update, context: ContextTypes.DEFAULT_
     await process_group_locks(update, context)
     await check_auto_replies(update, context)
 
+# ==========================================
+# 🚀 ۷. اجرای ربات و ثبت هندلرها (Main Entry)
+# ==========================================
+async def post_init(application: Application):
+    """راه‌اندازی وب‌سرور Pinger همزمان با استارت ربات"""
+    asyncio.create_task(start_web_server())
+
 def main():
     init_db()
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", help_command))
     app.add_handler(MessageHandler(filters.Regex("^تنظیم مالک"), set_owner_command))
@@ -195,9 +202,6 @@ def main():
 
     if app.job_queue:
         app.job_queue.run_repeating(check_temp_admins_job, interval=60, first=10)
-
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_web_server())
 
     print("🤖 Mafioso Bot is 100% complete, patched, and active!")
     app.run_polling()
