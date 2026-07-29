@@ -30,6 +30,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ==========================================
+# 🌐 ۱. وب‌سرور Pinger برای زنده نگه‌داشتن روی Render
+# ==========================================
 async def handle_ping(request):
     return web.Response(text="Mafioso Bot is Fully Active and Alive!")
 
@@ -42,6 +45,9 @@ async def start_web_server():
     await site.start()
     logger.info(f"Pinger web server running on port {PORT}")
 
+# ==========================================
+# 🕒 ۲. ابزار محاسباتی داینامیک تاریخ، زمان و تقویم
+# ==========================================
 def get_persian_date_info():
     tz = pytz.timezone('Asia/Tehran')
     now = datetime.now(tz)
@@ -65,6 +71,9 @@ def get_persian_date_info():
     )
     return text
 
+# ==========================================
+# 📚 ۳. منوها و دستورات عمومی
+# ==========================================
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     keyboard = [
@@ -81,7 +90,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def date_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(get_persian_date_info(), parse_mode="Markdown")
 
-# --- سیستم اخطار هوشمند با Suppress Warning ---
+# ==========================================
+# ⚠️ ۴. اخطار دستی به کاربر
+# ==========================================
 async def warn_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg.reply_to_message:
@@ -96,7 +107,6 @@ async def warn_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("⚠️ شما دسترسی لازم برای اخطار دادن را ندارید.")
         return
 
-    # چک کردن سیستم ضد خیانت برای ادمین صادرکننده دستور
     if not await record_admin_action(chat_id, sender_id, context):
         return
 
@@ -106,7 +116,6 @@ async def warn_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     current_warns = add_warn(chat_id, target_user.id)
 
-    # اخطار نهایی -> سرکوب پیام اخطار و اجرای آنی مجازات
     if current_warns >= max_warns:
         try:
             if settings["warn_action"] == "ban":
@@ -118,7 +127,6 @@ async def warn_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 action_text = "سکوت (Mute)"
                 
             reset_warns(chat_id, target_user.id)
-            # خروجی خلاصه مجازات بدون پیام اخطار تکراری
             await msg.reply_text(
                 f"🚨 کاربر <a href='tg://user?id={target_user.id}'>{target_user.first_name}</a> به دلیل تکمیل شدن اخطارهای خود ({max_warns}/{max_warns}) از گروه **{action_text}** شد.",
                 parse_mode="HTML"
@@ -131,6 +139,9 @@ async def warn_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
 
+# ==========================================
+# 🔀 ۵. پردازش کالبک کلیدهای شیشه‌ای (Anti-Touch)
+# ==========================================
 async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
@@ -166,6 +177,9 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
     else:
         await query.answer("این بخش فعال است.")
 
+# ==========================================
+# 📩 ۶. پردازشگر مرکزی پیام‌ها
+# ==========================================
 async def central_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await process_filter_wizard(update, context):
         return
@@ -175,16 +189,12 @@ async def central_message_handler(update: Update, context: ContextTypes.DEFAULT_
     await check_auto_replies(update, context)
 
 # ==========================================
-# 🚀 ۷. اجرای ربات و ثبت هندلرها (Main Entry)
+# 🚀 ۷. اجرای کاملاً Async متناسب با پایتون جدید
 # ==========================================
-async def post_init(application: Application):
-    """راه‌اندازی وب‌سرور Pinger همزمان با استارت ربات"""
-    asyncio.create_task(start_web_server())
-
-def main():
+async def main_async():
     init_db()
 
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", help_command))
     app.add_handler(MessageHandler(filters.Regex("^تنظیم مالک"), set_owner_command))
@@ -203,8 +213,17 @@ def main():
     if app.job_queue:
         app.job_queue.run_repeating(check_temp_admins_job, interval=60, first=10)
 
-    print("🤖 Mafioso Bot is 100% complete, patched, and active!")
-    app.run_polling()
+    # راه اندازی وب‌سرور Pinger
+    asyncio.create_task(start_web_server())
+
+    print("🤖 Mafioso Bot is 100% active!")
+
+    # شروع کار ربات به شکل Async کامل
+    async with app:
+        await app.start()
+        await app.updater.start_polling()
+        # نگه‌داشتن پروسه به‌صورت زنده
+        await asyncio.Event().wait()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main_async())
