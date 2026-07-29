@@ -33,7 +33,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS roles (
             user_id INTEGER,
             chat_id INTEGER,
-            role_type TEXT, -- 'owner', 'admin', 'special', 'exempt'
+            role_type TEXT,
             title TEXT DEFAULT '',
             PRIMARY KEY (user_id, chat_id)
         )
@@ -63,7 +63,7 @@ def init_db():
             lock_forward BOOLEAN DEFAULT 0,
             lock_gif BOOLEAN DEFAULT 0,
             lock_text BOOLEAN DEFAULT 0,
-            shutdown_mode INTEGER DEFAULT 0, -- 0: off, 1: lock group, 2: absolute, 3: del text, 4: del media
+            shutdown_mode INTEGER DEFAULT 0,
             shutdown_until INTEGER DEFAULT 0,
             rules_text TEXT DEFAULT 'قوانینی برای گروه مربوطه ثبت نشده است!',
             anti_betrayal_limit INTEGER DEFAULT 5
@@ -80,7 +80,7 @@ def init_db():
         )
     ''')
     
-    # ۶. جدول پاسخ‌های خودکار (Auto Reply Wizard)
+    # ۶. جدول پاسخ‌های خودکار
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS auto_replies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,7 +102,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- توابع مدیریت نقش‌ها و سطوح دسترسی ---
+# --- توابع نقش‌ها ---
 
 def set_user_role(chat_id: int, user_id: int, role_type: str, title: str = ""):
     conn = get_connection()
@@ -190,7 +190,25 @@ def update_setting(chat_id: int, key: str, value):
     conn.commit()
     conn.close()
 
-# --- توابع اخطار، فیلتر و آمار ---
+# --- توابع فیلتر کلمات (حل مشکل Import) ---
+
+def add_filtered_word(chat_id: int, word: str, action: str = 'del'):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO filtered_words (chat_id, word, action) VALUES (?, ?, ?)", 
+                   (chat_id, word.strip().lower(), action))
+    conn.commit()
+    conn.close()
+
+def get_filtered_words(chat_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT word, action FROM filtered_words WHERE chat_id = ?", (chat_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+# --- توابع اخطار ---
 
 def add_warn(chat_id: int, user_id: int) -> int:
     conn = get_connection()
